@@ -184,9 +184,11 @@ export function KanbanBoard({ tickets, onTicketClick, onAddTicket, onTicketUpdat
         ))}
       </div>
 
-      <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
+      {/* dropAnimation={null} → overlay disappears instantly on drop so the
+          real card appears in its final column with no snap-back flicker */}
+      <DragOverlay dropAnimation={null}>
         {activeTicket ? (
-          <div className="rotate-1 opacity-95">
+          <div className="rotate-1 opacity-95 drop-shadow-2xl">
             <TicketCard ticket={activeTicket} onClick={() => {}} isDragOverlay />
           </div>
         ) : null}

@@ -31,7 +31,12 @@ export function TicketCard({ ticket, onClick, isDragOverlay = false }: TicketCar
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        // Suppress transition while dragging — the DragOverlay handles movement.
+        // Keep transition for other cards sliding to make room.
+        transition: isDragging ? 'none' : transition,
+      }}
       {...attributes}
       {...listeners}
       className={cn(
