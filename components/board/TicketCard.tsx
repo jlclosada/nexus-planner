@@ -2,7 +2,7 @@
 
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, MessageSquare, GitBranch, Hash } from 'lucide-react'
+import { MessageSquare, GitBranch, Hash } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { PriorityBadge, TypeBadge } from '@/components/tickets/TicketBadge'
 import { getInitials } from '@/lib/utils'
@@ -28,57 +28,42 @@ export function TicketCard({ ticket, onClick, isDragOverlay = false }: TicketCar
     data: { ticket, type: 'ticket' },
   })
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  }
-
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      {...attributes}
+      {...listeners}
       className={cn(
         'group select-none',
-        isDragging && 'opacity-40',
+        isDragging ? 'opacity-40 cursor-grabbing' : 'cursor-pointer',
         isDragOverlay && 'shadow-2xl rotate-1'
       )}
+      // dnd-kit with activationConstraint distance:8 prevents the click event
+      // from firing after a drag, so we can call onClick unconditionally here.
+      onClick={(e) => {
+        e.stopPropagation()
+        if (!isDragging) onClick()
+      }}
     >
       <div
-        onClick={(e) => {
-          e.stopPropagation()
-          onClick()
-        }}
         className={cn(
-          'rounded-lg p-3 transition-all duration-200 cursor-pointer',
+          'rounded-lg p-3 transition-all duration-200',
           'hover:border-white/15 hover:shadow-lg',
           isDragOverlay ? 'shadow-2xl' : ''
         )}
         style={{
-          background: isDragOverlay
-            ? 'rgba(30,30,50,0.98)'
-            : 'rgba(19,19,31,0.9)',
+          background: isDragOverlay ? 'rgba(30,30,50,0.98)' : 'rgba(19,19,31,0.9)',
           border: '1px solid rgba(255,255,255,0.07)',
         }}
       >
-        {/* Top row: type + code + priority + drag handle */}
+        {/* Top row */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
             <TypeBadge type={ticket.type} />
             <span className="text-xs font-medium text-slate-500">{ticket.code}</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <PriorityBadge priority={ticket.priority} />
-            {!isDragOverlay && (
-              <div
-                {...attributes}
-                {...listeners}
-                onClick={(e) => e.stopPropagation()}
-                className="p-0.5 rounded text-slate-700 hover:text-slate-400 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity touch-none"
-              >
-                <GripVertical className="w-3 h-3" />
-              </div>
-            )}
-          </div>
+          <PriorityBadge priority={ticket.priority} />
         </div>
 
         {/* Title */}
@@ -116,8 +101,8 @@ export function TicketCard({ ticket, onClick, isDragOverlay = false }: TicketCar
           </div>
         )}
 
-        {/* Bottom row: comments, subtasks, points, avatar */}
-        <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/[0.04]">
+        {/* Bottom row */}
+        <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/4">
           <div className="flex items-center gap-2 text-xs text-slate-600">
             {(ticket._count?.comments ?? 0) > 0 && (
               <span className="flex items-center gap-0.5">
@@ -135,7 +120,7 @@ export function TicketCard({ ticket, onClick, isDragOverlay = false }: TicketCar
 
           <div className="flex items-center gap-2">
             {ticket.storyPoints !== null && ticket.storyPoints !== undefined && (
-              <div className="flex items-center gap-0.5 text-xs text-slate-500 bg-white/[0.05] px-1.5 py-0.5 rounded">
+              <div className="flex items-center gap-0.5 text-xs text-slate-500 bg-white/5 px-1.5 py-0.5 rounded">
                 <Hash className="w-2.5 h-2.5" />
                 {ticket.storyPoints}
               </div>

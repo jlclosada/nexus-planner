@@ -62,11 +62,14 @@ export function TicketModal({ ticketId, projectId, onClose }: TicketModalProps) 
     queryKey: ['ticket', ticketId],
     queryFn: async () => {
       const r = await fetch(`/api/tickets/${ticketId}`)
-      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({ error: `HTTP ${r.status}` }))
+        throw new Error(body?.error ?? `HTTP ${r.status}`)
+      }
       return r.json()
     },
     enabled: !!ticketId,
-    retry: 1,
+    retry: false,
   })
 
   const { data: sprints = [] } = useQuery<SprintWithTickets[]>({
@@ -635,7 +638,14 @@ export function TicketModal({ ticketId, projectId, onClose }: TicketModalProps) 
               </div>
             </>
           ) : (
-            <div className="flex items-center justify-center w-full h-32 text-slate-500">Ticket not found</div>
+            <div className="flex flex-col items-center justify-center w-full h-32 gap-2">
+              <p className="text-slate-500 text-sm">Could not load ticket</p>
+              {ticketError && (
+                <p className="text-red-400/70 text-xs font-mono px-4 text-center">
+                  {(ticketError as Error).message}
+                </p>
+              )}
+            </div>
           )}
         </motion.div>
       </div>
