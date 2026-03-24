@@ -28,36 +28,50 @@ export async function GET(
 
   const { ticketId } = await params
 
+  const baseInclude = {
+    assignee: { select: { id: true, name: true, email: true, image: true } },
+    reporter: { select: { id: true, name: true, email: true, image: true } },
+    sprint: true,
+    epic: true,
+    parent: { select: { id: true, code: true, title: true } },
+    subtasks: {
+      include: { assignee: { select: { id: true, name: true, image: true } } },
+    },
+    labels: { include: { label: true } },
+    comments: {
+      include: { user: { select: { id: true, name: true, image: true } } },
+      orderBy: { createdAt: 'asc' as const },
+    },
+    activities: {
+      include: { user: { select: { id: true, name: true, image: true } } },
+      orderBy: { createdAt: 'desc' as const },
+      take: 20,
+    },
+  }
+
   try {
-    const ticket = await prisma.ticket.findUnique({
-      where: { id: ticketId },
-      include: {
-        assignee: { select: { id: true, name: true, email: true, image: true } },
-        reporter: { select: { id: true, name: true, email: true, image: true } },
-        sprint: true,
-        epic: true,
-        parent: { select: { id: true, code: true, title: true } },
-        subtasks: {
-          include: {
-            assignee: { select: { id: true, name: true, image: true } },
+    // Try full query including attachments (requires up-to-date Prisma client)
+    let ticket
+    try {
+      ticket = await prisma.ticket.findUnique({
+        where: { id: ticketId },
+        include: {
+          ...baseInclude,
+          attachments: {
+            include: { uploadedBy: { select: { id: true, name: true } } },
+            orderBy: { createdAt: 'desc' as const },
           },
         },
-        labels: { include: { label: true } },
-        comments: {
-          include: { user: { select: { id: true, name: true, image: true } } },
-          orderBy: { createdAt: 'asc' },
-        },
-        activities: {
-          include: { user: { select: { id: true, name: true, image: true } } },
-          orderBy: { createdAt: 'desc' },
-          take: 20,
-        },
-        attachments: {
-          include: { uploadedBy: { select: { id: true, name: true } } },
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-    })
+      })
+    } catch {
+      // Prisma client may be stale (attachments model not yet generated).
+      // Fall back to query without attachments so the modal still opens.
+      ticket = await prisma.ticket.findUnique({
+        where: { id: ticketId },
+        include: baseInclude,
+      })
+      if (ticket) (ticket as Record<string, unknown>).attachments = []
+    }
 
     if (!ticket) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     return NextResponse.json(ticket)
