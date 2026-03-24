@@ -5,6 +5,7 @@ import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
+  MeasuringStrategy,
   PointerSensor,
   useSensor,
   useSensors,
@@ -17,6 +18,7 @@ import {
   UniqueIdentifier,
 } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable'
+import { motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { KanbanColumn } from './KanbanColumn'
 import { TicketCard } from './TicketCard'
@@ -166,6 +168,7 @@ export function KanbanBoard({ tickets, onTicketClick, onAddTicket, onTicketUpdat
     <DndContext
       sensors={sensors}
       collisionDetection={collisionDetection}
+      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
@@ -184,13 +187,21 @@ export function KanbanBoard({ tickets, onTicketClick, onAddTicket, onTicketUpdat
         ))}
       </div>
 
-      {/* dropAnimation={null} → overlay disappears instantly on drop so the
-          real card appears in its final column with no snap-back flicker */}
+      {/* dropAnimation=null: overlay disappears instantly on drop — no snap-back.
+          Framer Motion handles the lift + tilt on pickup. */}
       <DragOverlay dropAnimation={null}>
         {activeTicket ? (
-          <div className="rotate-1 opacity-95 drop-shadow-2xl">
+          <motion.div
+            initial={{ scale: 1, rotate: 0 }}
+            animate={{ scale: 1.04, rotate: 1.5 }}
+            transition={{ duration: 0.12, ease: [0.2, 0, 0, 1] }}
+            style={{
+              filter: 'drop-shadow(0 24px 48px rgba(0,0,0,0.55)) drop-shadow(0 8px 16px rgba(0,0,0,0.35))',
+              transformOrigin: 'center center',
+            }}
+          >
             <TicketCard ticket={activeTicket} onClick={() => {}} isDragOverlay />
-          </div>
+          </motion.div>
         ) : null}
       </DragOverlay>
     </DndContext>

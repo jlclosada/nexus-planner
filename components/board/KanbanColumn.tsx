@@ -29,17 +29,15 @@ export function KanbanColumn({
 
   return (
     <div
-      className={cn(
-        'flex flex-col rounded-xl transition-all duration-150',
-        isOver ? 'ring-1' : ''
-      )}
+      className="flex flex-col rounded-xl"
       style={{
         minWidth: '280px',
         maxWidth: '300px',
         flex: '0 0 280px',
-        background: isOver ? `${color}0a` : 'rgba(15,15,26,0.6)',
-        border: isOver ? `1px solid ${color}50` : '1px solid rgba(255,255,255,0.05)',
-        ringColor: undefined,
+        background: isOver ? `${color}0d` : 'rgba(15,15,26,0.6)',
+        border: isOver ? `1px solid ${color}55` : '1px solid rgba(255,255,255,0.05)',
+        boxShadow: isOver ? `0 0 0 1px ${color}25, inset 0 0 40px ${color}05` : 'none',
+        transition: 'background 200ms ease, border-color 200ms ease, box-shadow 200ms ease',
       }}
     >
       {/* Column header */}

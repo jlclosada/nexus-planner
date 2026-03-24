@@ -33,19 +33,15 @@ export function TicketCard({ ticket, onClick, isDragOverlay = false }: TicketCar
       ref={setNodeRef}
       style={{
         transform: CSS.Transform.toString(transform),
-        // Suppress transition while dragging — the DragOverlay handles movement.
-        // Keep transition for other cards sliding to make room.
-        transition: isDragging ? 'none' : transition,
+        // No transition while this card is being dragged (overlay handles it).
+        // Other cards use a spring-like easing to slide smoothly into position.
+        transition: isDragging ? 'none' : 'transform 200ms cubic-bezier(0.2, 0, 0, 1)',
+        // Invisible placeholder — preserves the slot, overlay shows the card.
+        opacity: isDragging ? 0 : 1,
       }}
       {...attributes}
       {...listeners}
-      className={cn(
-        'group select-none',
-        isDragging ? 'opacity-40 cursor-grabbing' : 'cursor-pointer',
-        isDragOverlay && 'shadow-2xl rotate-1'
-      )}
-      // dnd-kit with activationConstraint distance:8 prevents the click event
-      // from firing after a drag, so we can call onClick unconditionally here.
+      className={cn('group select-none', isDragging ? 'cursor-grabbing' : 'cursor-pointer')}
       onClick={(e) => {
         e.stopPropagation()
         if (!isDragging) onClick()
@@ -53,13 +49,14 @@ export function TicketCard({ ticket, onClick, isDragOverlay = false }: TicketCar
     >
       <div
         className={cn(
-          'rounded-lg p-3 transition-all duration-200',
-          'hover:border-white/15 hover:shadow-lg',
-          isDragOverlay ? 'shadow-2xl' : ''
+          'rounded-lg p-3 transition-colors duration-150',
+          !isDragOverlay && 'hover:border-white/15',
         )}
         style={{
-          background: isDragOverlay ? 'rgba(30,30,50,0.98)' : 'rgba(19,19,31,0.9)',
-          border: '1px solid rgba(255,255,255,0.07)',
+          background: isDragOverlay ? 'rgba(28,28,46,0.98)' : 'rgba(19,19,31,0.9)',
+          border: isDragOverlay
+            ? '1px solid rgba(255,255,255,0.13)'
+            : '1px solid rgba(255,255,255,0.07)',
         }}
       >
         {/* Top row */}
