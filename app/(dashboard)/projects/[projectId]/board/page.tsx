@@ -92,7 +92,7 @@ export default function BoardPage({
                   {activeSprint ? activeSprint.name : 'Active Sprint'}
                 </SelectItem>
                 <SelectItem value="all" className="text-slate-300 text-xs">All Tickets</SelectItem>
-                {project?.sprints?.map((sprint) => (
+                {project?.sprints?.filter((s) => s.id !== activeSprint?.id).map((sprint) => (
                   <SelectItem key={sprint.id} value={sprint.id} className="text-slate-300 text-xs">
                     {sprint.name}
                   </SelectItem>
