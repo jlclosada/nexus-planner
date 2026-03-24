@@ -2,8 +2,7 @@
 
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { motion } from 'framer-motion'
-import { MessageSquare, GitBranch, Hash } from 'lucide-react'
+import { GripVertical, MessageSquare, GitBranch, Hash } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { PriorityBadge, TypeBadge } from '@/components/tickets/TicketBadge'
 import { getInitials } from '@/lib/utils'
@@ -38,23 +37,19 @@ export function TicketCard({ ticket, onClick, isDragOverlay = false }: TicketCar
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
-      onClick={(e) => {
-        if (!isDragging) {
-          e.stopPropagation()
-          onClick()
-        }
-      }}
       className={cn(
-        'group cursor-pointer select-none',
+        'group select-none',
         isDragging && 'opacity-40',
         isDragOverlay && 'shadow-2xl rotate-1'
       )}
     >
       <div
+        onClick={(e) => {
+          e.stopPropagation()
+          onClick()
+        }}
         className={cn(
-          'rounded-lg p-3 transition-all duration-200',
+          'rounded-lg p-3 transition-all duration-200 cursor-pointer',
           'hover:border-white/15 hover:shadow-lg',
           isDragOverlay ? 'shadow-2xl' : ''
         )}
@@ -65,13 +60,25 @@ export function TicketCard({ ticket, onClick, isDragOverlay = false }: TicketCar
           border: '1px solid rgba(255,255,255,0.07)',
         }}
       >
-        {/* Top row: type + code + priority */}
+        {/* Top row: type + code + priority + drag handle */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
             <TypeBadge type={ticket.type} />
             <span className="text-xs font-medium text-slate-500">{ticket.code}</span>
           </div>
-          <PriorityBadge priority={ticket.priority} />
+          <div className="flex items-center gap-1.5">
+            <PriorityBadge priority={ticket.priority} />
+            {!isDragOverlay && (
+              <div
+                {...attributes}
+                {...listeners}
+                onClick={(e) => e.stopPropagation()}
+                className="p-0.5 rounded text-slate-700 hover:text-slate-400 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity touch-none"
+              >
+                <GripVertical className="w-3 h-3" />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Title */}
