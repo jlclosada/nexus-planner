@@ -16,6 +16,7 @@ const updateTicketSchema = z.object({
   parentId: z.string().nullable().optional(),
   assigneeId: z.string().nullable().optional(),
   dueDate: z.string().nullable().optional(),
+  branchName: z.string().nullable().optional(),
   labelIds: z.array(z.string()).optional(),
 })
 

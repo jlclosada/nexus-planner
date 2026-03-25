@@ -39,17 +39,29 @@ export function StatusBadge({ status }: { status: TicketStatus }) {
   )
 }
 
-export function TypeBadge({ type }: { type: TicketType }) {
+export function TypeBadge({ type, showLabel }: { type: TicketType; showLabel?: boolean }) {
   const color = getTicketTypeColor(type)
   const icons: Record<TicketType, React.ElementType> = {
-    EPIC: Layers,
-    STORY: BookOpen,
-    TASK: CheckSquare,
-    BUG: Bug,
-    SUBTASK: CheckSquare,
-    SPIKE: FlaskConical,
+    EPIC: Layers, STORY: BookOpen, TASK: CheckSquare,
+    BUG: Bug, SUBTASK: CheckSquare, SPIKE: FlaskConical,
+  }
+  const labels: Record<TicketType, string> = {
+    EPIC: 'Epic', STORY: 'Story', TASK: 'Task',
+    BUG: 'Bug', SUBTASK: 'Subtask', SPIKE: 'Spike',
   }
   const Icon = icons[type]
+
+  if (showLabel) {
+    return (
+      <div
+        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium"
+        style={{ color, background: `${color}18` }}
+      >
+        <Icon className="w-3 h-3" />
+        {labels[type]}
+      </div>
+    )
+  }
 
   return (
     <div

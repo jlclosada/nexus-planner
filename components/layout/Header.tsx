@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { Search, Bell, Plus, Command } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,18 @@ interface HeaderProps {
 export function Header({ title, breadcrumbs }: HeaderProps) {
   const [commandOpen, setCommandOpen] = useState(false)
   const pathname = usePathname()
+
+  // Global Cmd+K / Ctrl+K shortcut — registered here so it works on every page
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        setCommandOpen((v) => !v)
+      }
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [])
 
   const getTitle = () => {
     if (title) return title

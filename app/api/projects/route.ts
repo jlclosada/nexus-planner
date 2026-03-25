@@ -30,12 +30,36 @@ export async function GET() {
       sprints: {
         where: { status: 'ACTIVE' },
         take: 1,
+        include: {
+          tickets: {
+            select: { status: true, storyPoints: true },
+          },
+        },
       },
     },
     orderBy: { updatedAt: 'desc' },
   })
 
-  return NextResponse.json(projects)
+  // Compute sprint stats for each project
+  const enriched = projects.map((p) => {
+    const sprint = p.sprints[0] ?? null
+    if (!sprint) return { ...p, sprintStats: null }
+
+    const tickets = sprint.tickets ?? []
+    const totalPoints = tickets.reduce((sum, t) => sum + (t.storyPoints ?? 0), 0)
+    const donePoints  = tickets.filter(t => t.status === 'DONE').reduce((sum, t) => sum + (t.storyPoints ?? 0), 0)
+    const totalCount  = tickets.length
+    const doneCount   = tickets.filter(t => t.status === 'DONE').length
+    const inProgressCount = tickets.filter(t => t.status === 'IN_PROGRESS').length
+    const blockedCount = tickets.filter(t => t.status === 'BLOCKED').length
+
+    return {
+      ...p,
+      sprintStats: { totalPoints, donePoints, totalCount, doneCount, inProgressCount, blockedCount },
+    }
+  })
+
+  return NextResponse.json(enriched)
 }
 
 export async function POST(request: Request) {

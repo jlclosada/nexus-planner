@@ -51,12 +51,20 @@ export function TicketCard({ ticket, onClick, isDragOverlay = false }: TicketCar
         className={cn(
           'rounded-lg p-3 transition-colors duration-150',
           !isDragOverlay && 'hover:border-white/15',
+          ticket.type === 'SUBTASK' && !isDragOverlay && 'border-l-[3px]',
         )}
         style={{
-          background: isDragOverlay ? 'rgba(28,28,46,0.98)' : 'rgba(19,19,31,0.9)',
+          background: isDragOverlay
+            ? 'rgba(28,28,46,0.98)'
+            : ticket.type === 'SUBTASK'
+              ? 'rgba(139,92,246,0.04)'
+              : 'rgba(19,19,31,0.9)',
           border: isDragOverlay
             ? '1px solid rgba(255,255,255,0.13)'
-            : '1px solid rgba(255,255,255,0.07)',
+            : ticket.type === 'SUBTASK'
+              ? '1px solid rgba(139,92,246,0.15)'
+              : '1px solid rgba(255,255,255,0.07)',
+          borderLeftColor: ticket.type === 'SUBTASK' && !isDragOverlay ? 'rgba(139,92,246,0.5)' : undefined,
         }}
       >
         {/* Top row */}
@@ -69,7 +77,13 @@ export function TicketCard({ ticket, onClick, isDragOverlay = false }: TicketCar
         </div>
 
         {/* Title */}
-        <p className="text-sm text-slate-200 leading-snug mb-2 line-clamp-2 group-hover:text-white transition-colors">
+        <p className={cn(
+          'text-sm leading-snug mb-2 line-clamp-2 transition-colors',
+          ticket.type === 'SUBTASK' ? 'text-slate-300 group-hover:text-slate-100' : 'text-slate-200 group-hover:text-white',
+        )}>
+          {ticket.type === 'SUBTASK' && (
+            <span className="text-violet-400/60 mr-1 text-xs font-medium select-none">⤷</span>
+          )}
           {ticket.title}
         </p>
 

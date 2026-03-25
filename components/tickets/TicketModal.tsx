@@ -7,7 +7,7 @@ import {
   X, Edit3, MessageSquare, Clock, User, Tag, Hash, GitBranch,
   Plus, Check, Loader2, AlertCircle, CheckCircle2, ArrowUpRight,
   Paperclip, Download, Trash2, FileIcon, Copy, CalendarDays,
-  ChevronRight, Zap, Send, Flag, BarChart2, ExternalLink,
+  ChevronRight, ChevronDown, Zap, Send, Flag, BarChart2, ExternalLink,
   Circle, CheckSquare,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -79,9 +79,14 @@ export function TicketModal({ ticketId, projectId, onClose }: Props) {
   const [addingSubtask, setAddingSubtask]       = useState(false)
   const [subtaskTitle, setSubtaskTitle]         = useState('')
   const [codeCopied, setCodeCopied]             = useState(false)
+  const [branchCopied, setBranchCopied]         = useState(false)
   const [confirmDelete, setConfirmDelete]       = useState(false)
   const [uploading, setUploading]               = useState(false)
   const [activeTab, setActiveTab]               = useState<'comments' | 'activity'>('comments')
+  const [branchOpen, setBranchOpen]             = useState(false)
+  const [branchName, setBranchName]             = useState('')
+  const [baseBranch, setBaseBranch]             = useState('')
+  const [branchCreated, setBranchCreated]       = useState<{ name: string; url: string } | null>(null)
 
   const fileRef     = useRef<HTMLInputElement>(null)
   const titleRef    = useRef<HTMLInputElement>(null)
@@ -99,10 +104,11 @@ export function TicketModal({ ticketId, projectId, onClose }: Props) {
     retry: false,
   })
 
-  const { data: sprints = [] } = useQuery<SprintWithTickets[]>({
-    queryKey: ['sprints', projectId],
-    queryFn: () => fetch(`/api/projects/${projectId}`).then(r => r.json()).then(p => Array.isArray(p.sprints) ? p.sprints : []),
+  const { data: project } = useQuery<{ repoOwner?: string | null; repoName?: string | null; sprints?: SprintWithTickets[] }>({
+    queryKey: ['project', projectId],
+    queryFn: () => fetch(`/api/projects/${projectId}`).then(r => r.json()),
   })
+  const sprints: SprintWithTickets[] = Array.isArray(project?.sprints) ? project!.sprints! : []
   const { data: epics = [] } = useQuery<EpicWithTickets[]>({
     queryKey: ['epics', projectId],
     queryFn: () => fetch(`/api/epics?projectId=${projectId}`).then(r => r.json()),
@@ -164,6 +170,71 @@ export function TicketModal({ ticketId, projectId, onClose }: Props) {
   const deleteAttachment = useMutation({
     mutationFn: (id: string) => fetch(`/api/tickets/${ticketId}/attachments/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ticket', ticketId] }),
+  })
+
+  /* Toggle subtask done ↔ todo — updates the subtask ticket directly */
+  const toggleSubtask = useMutation({
+    mutationFn: (sub: { id: string; status: string }) =>
+      fetch(`/api/tickets/${sub.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: sub.status === 'DONE' ? 'TODO' : 'DONE' }),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ticket', ticketId] })
+      qc.invalidateQueries({ queryKey: ['tickets', projectId] })
+    },
+    onError: () => toast.error('Failed to update subtask'),
+  })
+
+  /* Branches — only fetch when dialog is open */
+  const { data: branches = [], isLoading: loadingBranches, error: branchesError } = useQuery<{ name: string; sha: string }[]>({
+    queryKey: ['branches', projectId],
+    queryFn: async () => {
+      const r = await fetch(`/api/projects/${projectId}/branches`)
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`)
+      if (!Array.isArray(data)) throw new Error('Unexpected response from branches API')
+      return data as { name: string; sha: string }[]
+    },
+    enabled: branchOpen,
+    retry: false,
+  })
+
+  /* Default branch name from ticket code + slugified title */
+  useEffect(() => {
+    if (branchOpen && ticket) {
+      const slug = ticket.title
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .slice(0, 50)
+      setBranchName(`${ticket.code}-${slug}`)
+      if (branches.length && !baseBranch) setBaseBranch(branches[0].name)
+    }
+  }, [branchOpen, ticket, branches]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (branches.length && !baseBranch) setBaseBranch(branches[0].name)
+  }, [branches]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const createBranch = useMutation({
+    mutationFn: () =>
+      fetch(`/api/projects/${projectId}/branches`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: branchName.trim(), baseBranch, ticketId }),
+      }).then(async r => {
+        const data = await r.json()
+        if (!r.ok) throw new Error(data.error ?? 'Failed to create branch')
+        return data
+      }),
+    onSuccess: (data) => {
+      setBranchCreated(data)
+      toast.success(`Branch "${data.name}" created`)
+      qc.invalidateQueries({ queryKey: ['ticket', ticketId] })
+    },
+    onError: (e: Error) => toast.error(e.message),
   })
 
   const createSubtask = useMutation({
@@ -302,6 +373,35 @@ export function TicketModal({ ticketId, projectId, onClose }: Props) {
 
                 {/* actions */}
                 <div className="flex items-center gap-1 flex-shrink-0">
+                  {/* Branch chip or Create Branch button */}
+                  {ticket?.branchName ? (
+                    <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+                      <GitBranch className="w-3 h-3 shrink-0" />
+                      <span className="max-w-40 truncate">{ticket.branchName}</span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(ticket.branchName!)
+                          setBranchCopied(true)
+                          setTimeout(() => setBranchCopied(false), 1500)
+                        }}
+                        className="ml-1 p-0.5 rounded hover:bg-emerald-500/20 transition-all"
+                        title="Copy branch name"
+                      >
+                        {branchCopied
+                          ? <Check className="w-3 h-3 text-emerald-300" />
+                          : <Copy className="w-3 h-3 text-emerald-600 hover:text-emerald-400" />}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setBranchOpen(true); setBranchCreated(null) }}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all border border-transparent hover:border-emerald-500/20"
+                      title="Create branch for this ticket"
+                    >
+                      <GitBranch className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Branch</span>
+                    </button>
+                  )}
                   {confirmDelete ? (
                     <>
                       <span className="text-xs text-red-400 mr-1">Delete ticket?</span>
@@ -385,7 +485,20 @@ export function TicketModal({ ticketId, projectId, onClose }: Props) {
                     )}
 
                     {/* ── DESCRIPTION ────────────────────────── */}
-                    <Section icon={Edit3} title="Description">
+                    <Section
+                      icon={Edit3}
+                      title="Description"
+                      action={
+                        !editingDesc ? (
+                          <button
+                            onClick={() => setEditingDesc(true)}
+                            className="flex items-center gap-1 text-xs text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 px-2 py-1 rounded-lg transition-all"
+                          >
+                            <Edit3 className="w-3 h-3" /> Edit
+                          </button>
+                        ) : undefined
+                      }
+                    >
                       {editingDesc ? (
                         <div className="space-y-2">
                           <Textarea
@@ -402,26 +515,24 @@ export function TicketModal({ ticketId, projectId, onClose }: Props) {
                               <Check className="w-3 h-3" /> Save
                             </Button>
                             <Button size="sm" variant="ghost" onClick={() => { setEditingDesc(false); setDescDraft(ticket.description ?? '') }}
-                              className="text-slate-400 text-xs">
+                              className="text-slate-400 hover:text-slate-200 text-xs">
                               Cancel
                             </Button>
                           </div>
                         </div>
                       ) : (
-                        <button
-                          onClick={() => setEditingDesc(true)}
-                          className="group w-full text-left"
-                        >
+                        <div>
                           {ticket.description ? (
-                            <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap group-hover:text-slate-200 transition-colors">
+                            <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
                               {ticket.description}
                             </p>
                           ) : (
-                            <p className="text-sm text-slate-600 italic group-hover:text-slate-500 transition-colors">
-                              Click to add a description…
-                            </p>
+                            <button onClick={() => setEditingDesc(true)}
+                              className="text-sm text-slate-600 italic hover:text-slate-500 transition-colors w-full text-left px-3 py-4 rounded-lg border border-dashed border-white/[0.06] hover:border-indigo-500/30 hover:bg-indigo-500/[0.03]">
+                              Add a description…
+                            </button>
                           )}
-                        </button>
+                        </div>
                       )}
                     </Section>
 
@@ -461,8 +572,9 @@ export function TicketModal({ ticketId, projectId, onClose }: Props) {
                           <div key={sub.id}
                             className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-white/[0.03] transition-colors group">
                             <button
-                              onClick={() => update.mutate({ /* handled at subtask level — placeholder */ })}
-                              className="flex-shrink-0"
+                              onClick={() => toggleSubtask.mutate(sub)}
+                              disabled={toggleSubtask.isPending}
+                              className="flex-shrink-0 transition-transform hover:scale-110"
                             >
                               {sub.status === 'DONE'
                                 ? <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -746,11 +858,11 @@ export function TicketModal({ ticketId, projectId, onClose }: Props) {
                             <TypeBadge type={ticket.type} />
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent className="bg-[#1a1a2e] border-white/10 w-36">
+                        <DropdownMenuContent className="bg-[#1a1a2e] border-white/10 w-40">
                           {TYPES.map(t => (
                             <DropdownMenuItem key={t} onClick={() => update.mutate({ type: t })}
-                              className="text-slate-300 focus:bg-white/5">
-                              <TypeBadge type={t} />
+                              className="flex items-center gap-2 text-slate-300 focus:bg-white/5">
+                              <TypeBadge type={t} showLabel />
                               {ticket.type === t && <Check className="w-3 h-3 ml-auto text-indigo-400" />}
                             </DropdownMenuItem>
                           ))}
@@ -857,19 +969,42 @@ export function TicketModal({ ticketId, projectId, onClose }: Props) {
 
                     {/* Due Date */}
                     <PropField label="Due Date" icon={CalendarDays}>
-                      <div className="relative">
-                        <input
-                          type="date"
-                          value={ticket.dueDate ? new Date(ticket.dueDate).toISOString().split('T')[0] : ''}
-                          onChange={e => update.mutate({ dueDate: e.target.value || null })}
-                          className={cn(
-                            'w-full bg-transparent text-xs rounded-lg px-2 py-1.5 -mx-2 hover:bg-white/[0.04] transition-colors focus:outline-none focus:bg-white/[0.06] cursor-pointer',
-                            overdue ? 'text-red-400' : ticket.dueDate ? 'text-slate-300' : 'text-slate-600'
-                          )}
-                          style={{ colorScheme: 'dark' }}
-                        />
-                        {!ticket.dueDate && <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-600 italic pointer-events-none">No due date</span>}
-                      </div>
+                      {(() => {
+                        const sprintEnd = ticket.sprint?.endDate
+                          ? new Date(ticket.sprint.endDate).toISOString().split('T')[0]
+                          : ''
+                        const dueDateVal = ticket.dueDate
+                          ? new Date(ticket.dueDate).toISOString().split('T')[0]
+                          : sprintEnd
+                        const isFromSprint = !ticket.dueDate && !!sprintEnd
+                        return (
+                          <div className="relative group/date">
+                            <input
+                              type="date"
+                              value={dueDateVal}
+                              onChange={e => update.mutate({ dueDate: e.target.value || null })}
+                              className={cn(
+                                'w-full bg-transparent text-xs rounded-lg px-2 py-1.5 -mx-2 cursor-pointer',
+                                'border border-transparent hover:border-white/10 hover:bg-white/[0.04]',
+                                'focus:outline-none focus:border-indigo-500/40 focus:bg-white/[0.06]',
+                                'transition-all duration-150',
+                                overdue ? 'text-red-400' : dueDateVal ? (isFromSprint ? 'text-slate-500' : 'text-slate-300') : 'text-slate-600'
+                              )}
+                              style={{ colorScheme: 'dark' }}
+                            />
+                            {!dueDateVal && (
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-600 italic pointer-events-none">
+                                No due date
+                              </span>
+                            )}
+                            {isFromSprint && (
+                              <span className="absolute right-0 top-1/2 -translate-y-1/2 text-[10px] text-slate-600 pointer-events-none">
+                                sprint
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </PropField>
 
                     <div className="my-3 border-t border-white/[0.05]" />
@@ -956,6 +1091,141 @@ export function TicketModal({ ticketId, projectId, onClose }: Props) {
           )}
         </motion.div>
       </div>
+
+      {/* ── CREATE BRANCH DIALOG ───────────────────────────────── */}
+      <AnimatePresence>
+        {branchOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+            onClick={() => setBranchOpen(false)}>
+            <motion.div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97, y: 6 }}
+              transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
+              onClick={e => e.stopPropagation()}
+              className="relative w-full max-w-md rounded-2xl p-6 z-10"
+              style={{ background: '#13131f', border: '1px solid rgba(255,255,255,0.1)' }}
+            >
+              <div className="flex items-center gap-2 mb-5">
+                <div className="p-2 rounded-lg bg-emerald-500/10">
+                  <GitBranch className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-200">Create Branch</h3>
+                  <p className="text-xs text-slate-500">from <span className="text-slate-400 font-mono">{ticket?.code}</span></p>
+                </div>
+                <button onClick={() => setBranchOpen(false)}
+                  className="ml-auto p-1.5 rounded-lg text-slate-600 hover:text-slate-300 hover:bg-white/[0.06] transition-all">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {branchCreated ? (
+                /* Success state */
+                <div className="text-center space-y-4">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto">
+                    <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-200 mb-1">Branch created!</p>
+                    <p className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg inline-block">
+                      {branchCreated.name}
+                    </p>
+                  </div>
+                  <div className="flex gap-2 justify-center">
+                    {branchCreated.url && (
+                      <a href={branchCreated.url} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-lg transition-all">
+                        <ExternalLink className="w-3 h-3" /> Open in GitHub
+                      </a>
+                    )}
+                    <button onClick={() => { setBranchCreated(null); setBranchOpen(false) }}
+                      className="text-xs text-slate-500 hover:text-slate-300 px-3 py-1.5 rounded-lg hover:bg-white/[0.06] transition-all">
+                      Close
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Base branch */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Base Branch</label>
+                    {loadingBranches ? (
+                      <div className="flex items-center gap-2 text-xs text-slate-600 py-2">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading branches…
+                      </div>
+                    ) : branchesError ? (
+                      <div className="text-xs text-red-400/80 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                        {(branchesError as Error).message}
+                      </div>
+                    ) : branches.length === 0 ? (
+                      <div className="text-xs text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                        No repository connected. Configure one in Project Settings → Repository.
+                      </div>
+                    ) : (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm text-slate-300 transition-all"
+                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                            <span className="flex items-center gap-2">
+                              <GitBranch className="w-3.5 h-3.5 text-slate-500" />
+                              <span className="font-mono text-xs">{baseBranch || 'Select base branch…'}</span>
+                            </span>
+                            <ChevronDown className="w-3.5 h-3.5 text-slate-600" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="bg-[#1a1a2e] border-white/10 w-64 max-h-60 overflow-y-auto">
+                          {branches.map(b => (
+                            <DropdownMenuItem key={b.name} onClick={() => setBaseBranch(b.name)}
+                              className="flex items-center gap-2 text-slate-300 focus:bg-white/5 font-mono text-xs">
+                              <GitBranch className="w-3 h-3 text-slate-600 shrink-0" />
+                              {b.name}
+                              {baseBranch === b.name && <Check className="w-3 h-3 text-indigo-400 ml-auto" />}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
+
+                  {/* Branch name */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Branch Name</label>
+                    <Input
+                      value={branchName}
+                      onChange={e => setBranchName(e.target.value)}
+                      placeholder={`${ticket?.code ?? 'PROJ-1'}-feature-name`}
+                      className="bg-white/[0.04] border-white/10 text-slate-200 placeholder:text-slate-600 text-sm font-mono"
+                    />
+                    <p className="text-xs text-slate-600">Use only letters, numbers, hyphens, and slashes.</p>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      onClick={() => createBranch.mutate()}
+                      disabled={!branchName.trim() || !baseBranch || branches.length === 0 || createBranch.isPending}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white gap-2 text-sm"
+                    >
+                      {createBranch.isPending
+                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Creating…</>
+                        : <><GitBranch className="w-3.5 h-3.5" /> Create Branch</>}
+                    </Button>
+                    <Button variant="ghost" onClick={() => setBranchOpen(false)}
+                      className="text-slate-400 hover:text-slate-200">
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </AnimatePresence>
   )
 }

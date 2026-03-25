@@ -70,6 +70,12 @@ model Project {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
+  repoProvider String?
+  repoOwner    String?
+  repoName     String?
+  repoToken    String?
+  repoDefaultBranch String? @default("main")
+
   members ProjectMember[]
   sprints Sprint[]
   tickets Ticket[]
@@ -146,6 +152,7 @@ model Ticket {
 
   dueDate     DateTime?
   completedAt DateTime?
+  branchName  String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

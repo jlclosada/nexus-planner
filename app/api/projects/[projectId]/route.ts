@@ -10,6 +10,11 @@ const updateProjectSchema = z.object({
   color: z.string().optional(),
   icon: z.string().optional(),
   status: z.enum(['ACTIVE', 'ARCHIVED']).optional(),
+  repoProvider: z.string().optional(),
+  repoOwner: z.string().optional(),
+  repoName: z.string().optional(),
+  repoToken: z.string().optional(),
+  repoDefaultBranch: z.string().optional(),
 })
 
 async function checkProjectAccess(projectId: string, userId: string) {

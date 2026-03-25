@@ -12,6 +12,7 @@ import {
   BarChart3,
   Layers,
   Settings,
+  GitBranch,
 } from 'lucide-react'
 import type { ProjectWithRelations } from '@/types'
 
@@ -21,6 +22,7 @@ const tabs = [
   { label: 'Backlog', icon: ListTodo, path: '/backlog' },
   { label: 'Sprints', icon: Zap, path: '/sprints' },
   { label: 'Epics', icon: Layers, path: '/epics' },
+  { label: 'Repository', icon: GitBranch, path: '/repository' },
   { label: 'Analytics', icon: BarChart3, path: '/analytics' },
   { label: 'Settings', icon: Settings, path: '/settings' },
 ]
