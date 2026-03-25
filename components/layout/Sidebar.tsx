@@ -46,6 +46,13 @@ export function Sidebar() {
     queryFn: () => fetch('/api/projects').then((r) => r.json()),
   })
 
+  const { data: notifications = [] } = useQuery<{ read: boolean }[]>({
+    queryKey: ['notifications'],
+    queryFn: () => fetch('/api/notifications').then((r) => r.json()),
+    refetchInterval: 30_000,
+  })
+  const unreadCount = notifications.filter((n) => !n.read).length
+
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard'
     return pathname.startsWith(href)
@@ -84,8 +91,10 @@ export function Sidebar() {
           >
             <item.icon className={cn('w-4 h-4', isActive(item.href) ? 'text-indigo-400' : '')} />
             {item.label}
-            {item.label === 'Notifications' && (
-              <span className="ml-auto bg-indigo-500 text-white text-xs px-1.5 py-0.5 rounded-full">3</span>
+            {item.label === 'Notifications' && unreadCount > 0 && (
+              <span className="ml-auto bg-indigo-500 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
             )}
           </Link>
         ))}

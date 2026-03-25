@@ -173,3 +173,102 @@ body {
   background: rgba(99, 102, 241, 0.3);
   color: #f1f5f9;
 }
+
+/* ── Interactive cursor ─────────────────────────────────────────── */
+button,
+a,
+[role="button"],
+[role="link"],
+[role="menuitem"],
+[role="option"],
+label[for],
+input[type="checkbox"],
+input[type="radio"],
+select,
+summary {
+  cursor: pointer;
+}
+
+input:not([type="checkbox"]):not([type="radio"]),
+textarea {
+  cursor: text;
+}
+
+[disabled],
+[aria-disabled="true"] {
+  cursor: not-allowed !important;
+  opacity: 0.5;
+}
+
+/* ── Focus rings ────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid rgba(99, 102, 241, 0.6);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ── Hover lift for interactive cards ──────────────────────────── */
+.card-hover {
+  transition: transform 180ms cubic-bezier(0.2, 0, 0, 1),
+              box-shadow 180ms cubic-bezier(0.2, 0, 0, 1),
+              border-color 150ms ease;
+  will-change: transform;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+/* ── Nav item glow on active ────────────────────────────────────── */
+.nav-active-glow {
+  box-shadow: inset 0 0 20px rgba(99, 102, 241, 0.06);
+}
+
+/* ── Button press feel ──────────────────────────────────────────── */
+button:not([disabled]):active {
+  transform: scale(0.97);
+  transition: transform 80ms ease;
+}
+
+/* ── Smooth color transitions on all interactive elements ───────── */
+a,
+button {
+  transition-property: color, background-color, border-color, opacity, transform, box-shadow;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}
+
+/* ── Subtle shimmer for loading skeletons ───────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 0px,
+    rgba(255, 255, 255, 0.07) 80px,
+    rgba(255, 255, 255, 0.03) 160px
+  );
+  background-size: 800px 100%;
+  animation: shimmer 1.6s infinite linear;
+}
+
+/* ── Indigo glow on hover for action buttons ────────────────────── */
+.btn-glow:hover {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25), 0 4px 16px rgba(99, 102, 241, 0.2);
+}
+
+/* ── Tooltip-like ring on avatar hover ──────────────────────────── */
+.avatar-hover {
+  transition: box-shadow 150ms ease, transform 150ms ease;
+}
+.avatar-hover:hover {
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5);
+  transform: scale(1.08);
+}
+
+/* ── Scroll anchoring ───────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
